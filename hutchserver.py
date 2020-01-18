@@ -18,7 +18,6 @@ class MyServer(HTTPServer):
         self.previous_payload = None
 
 
-
 class MyRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers['Content-Length'])
@@ -44,6 +43,7 @@ class MyRequestHandler(BaseHTTPRequestHandler):
         # Ignore unauthenticated payloads
         if not self.valid_payload(payload):
             return None
+            
         if self.server.previous_payload:
             changed_state = { key:val for key, val in payload.items() if val != self.server.previous_payload.get(key) }
             if changed_state:
