@@ -4,9 +4,13 @@
     #define FRAMES_PER_SECOND 60
     #define BRIGHTNESS_PERCENT 50
 CRGB leds[NUM_LEDS];
+bool FLASH_IGNORES_BRIGHTNESS=true;
 
 bool stringComplete;
 String inputString;
+int milliseconds = millis();
+String cmd;
+bool cmdStart = true;
 
 //our command string
 #define COMMAND_SIZE 128
@@ -27,44 +31,48 @@ void setup() {
 
 void loop() {
 
+    // Got a new command
     if (stringComplete) {
-        Serial.print(inputString);
-        Serial.print(" ");
-        unsigned int count = inputString.length();
-        char str_array[count];
-        inputString.toCharArray(str_array, count);
-        Serial.print(has_command('A',str_array, count));
-        // inputString = "";
+        //Serial.println(inputString);
+        milliseconds = millis();
+        cmdStart = true;
+        cmd = inputString;
+        inputString = "";
         stringComplete = false;
     }
     
-    switch (inputString[0]) {
+    switch (cmd[0]) {
+        // Animations: A
         case 'A':
-            switch (inputString[1]){
+            switch (cmd[1]){
                 case '1':
-                    a_Red();
+                    if (cmdStart){
+                        a_Flashbang(milliseconds, 255);
+                        cmdStart = false;
+                    }
+                    else{
+                        a_Flashbang(milliseconds, 0);
+                    }
                     break;
                 case '2':
-                    a_Blue();
-                    break;
-                case '3':
-                    a_Pink();
-                    break;            
+                    byte intensity = getMagnitude(cmd);
+                    a_Flashbang_live(intensity);
+                    break;     
             }
+        // Colors: C
+        case 'C':
+            switch (cmd[1])
+                case '1':
+                        c_Red();
+                        break;
+                    case '2':
+                        c_Blue();
+                        break;
+                    case '3':
+                        c_Pink();
+                        break;
         break;
     }
-    /*
-    if (inputString == "A1"){
-        a_Red();
-    }
-    if (inputString == "A2"){
-        a_Blue();
-    }
-    if (inputString == "A3"){
-        a_Pink();
-    }
-*/
-    inputString = "";
 
     FastLED.show();
     
@@ -99,21 +107,63 @@ bool has_command(char key, char instruction[], int string_size)
 	return false;
 }
 
-void a_Red() {
+byte getMagnitude(String command){
+    return byte(command.substring(3,6).toInt());
+}
+
+void c_Red() {
     for (int i = 0; i < NUM_LEDS; i++){
-            leds[i] = CRGB(CRGB::Red);
+            leds[i] = CRGB::Red;
         }
 }
 
-void a_Blue() {
+void c_Blue() {
     for (int i = 0; i < NUM_LEDS; i++){
-            leds[i] = CRGB(CRGB::Blue);
+            leds[i] = CRGB::Blue;
         }
 }
 
-void a_Pink() {
+void c_Pink() {
     for (int i = 0; i < NUM_LEDS; i++){
             CRGB pink = CHSV( HUE_PINK, 255, 255);
             leds[i] = pink;
         }
+}
+
+//animations
+void a_Flashbang(int startMillis, byte startIntensity) {
+    // Simulated flashbang
+    if (startIntensity > 0){
+        for (int i = 0; i < NUM_LEDS; i++){
+            leds[i] = CHSV(0,0,startIntensity);
+        }
+    }
+    else {
+        if (millis() - startMillis > 1500) {
+            fadeToBlackBy(leds, NUM_LEDS, 64);
+        }
+    }
+    if (FLASH_IGNORES_BRIGHTNESS){
+        if (leds[0]) {
+            FastLED.setBrightness(map(100, 0, 100, 0, 255));
+        }
+        else {
+            FastLED.setBrightness(map(BRIGHTNESS_PERCENT, 0, 100, 0, 255));
+        }
+    }
+}
+
+void a_Flashbang_live(byte intensity) {
+    // Live flashbang that takes constant data from the game state.
+    for (int i = 0; i < NUM_LEDS; i++){
+        leds[i] = CHSV(0,0,intensity);
+    }
+    if (FLASH_IGNORES_BRIGHTNESS){
+        if (leds[0]) {
+            FastLED.setBrightness(map(100, 0, 100, 0, 255));
+        }
+        else {
+            FastLED.setBrightness(map(BRIGHTNESS_PERCENT, 0, 100, 0, 255));
+        }
+    }
 }

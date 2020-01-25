@@ -4,9 +4,15 @@ import time
 import json
 import os
 import logging
+import serial
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+arduino = serial.Serial('COM5', 9600, timeout=.1)
+time.sleep(5)
+arduino.write(b'A3\n')
 
 class MyServer(HTTPServer):
     def __init__(self, server_address, token, RequestHandler):
@@ -22,6 +28,8 @@ class MyRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers['Content-Length'])
         body = self.rfile.read(length).decode('utf-8')
+        #print(self.headers)
+        #print(body)
         self.parse_payload(json.loads(body))
 
         self.send_header('Content-type', 'text/html')
@@ -48,6 +56,12 @@ class MyRequestHandler(BaseHTTPRequestHandler):
             changed_state = { key:val for key, val in payload.items() if val != self.server.previous_payload.get(key) }
             if changed_state:
                 logger.info(changed_state)
+                # Need to make better organized functions for various animations/states
+                if changed_state.get('player',{}).get('state', {}).get('flashed', 0) > 0:
+                    print(f'Flashed!!! = ', changed_state['player']['state']['flashed'])
+                    flash = changed_state['player']['state']['flashed']
+                    cmd = bytes(f'A2 {flash}\n','utf-8')
+                    arduino.write(cmd)
         self.server.previous_payload = payload
 
     def log_message(self, format, *args):
