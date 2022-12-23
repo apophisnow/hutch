@@ -1,84 +1,73 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import sys
-import time
-import json
-import os
+import toml
+from wled_device import WLEDDevice
 import logging
-import serial
 import time
+import threading
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
-arduino = serial.Serial('COM5', 9600, timeout=.1)
-time.sleep(5)
-arduino.write(b'A3\n')
+def get_config():
+    config = None
+    try:
+        with open("csgo_config.toml", "r") as config_file:
+            config = toml.load(config_file)
+    except FileNotFoundError:
+        config = {
+            "fps": 30,
+            "wled_devices": {}
+        }
+        with open("csgo_config.toml", "w") as config_file:
+            toml.dump(config, config_file)
+    return config
 
-class MyServer(HTTPServer):
-    def __init__(self, server_address, token, RequestHandler):
-        self.auth_token = token
+def update_leds_thread(ledupdate, framerate):
+    """
+    A thread function that sends Adalight packets to update the LED colors at a fixed framerate.
+    """
+    while True:
+        ledupdate()
+        time.sleep(1 / framerate)
 
-        super(MyServer, self).__init__(server_address, RequestHandler)
-
-        # You can store states over multiple requests in the server 
-        self.previous_payload = None
-
-
-class MyRequestHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        length = int(self.headers['Content-Length'])
-        body = self.rfile.read(length).decode('utf-8')
-        #print(self.headers)
-        #print(body)
-        self.parse_payload(json.loads(body))
-
-        self.send_header('Content-type', 'text/html')
-        self.send_response(200)
-        self.end_headers()
-
-    def do_GET(self):
-        self.send_header('Content-type', 'text/html')
-        self.send_response(200)
-        self.end_headers()
-
-    def valid_payload(self, payload):
-        if 'auth' in payload and 'token' in payload['auth']:
-            return payload['auth']['token'] == server.auth_token
-        else:
-            return False
-
-    def parse_payload(self, payload):
-        # Ignore unauthenticated payloads
-        if not self.valid_payload(payload):
-            return None
-            
-        if self.server.previous_payload:
-            changed_state = { key:val for key, val in payload.items() if val != self.server.previous_payload.get(key) }
-            if changed_state:
-                logger.info(changed_state)
-                # Need to make better organized functions for various animations/states
-                if changed_state.get('player',{}).get('state', {}).get('flashed', 0) > 0:
-                    print(f'Flashed!!! = ', changed_state['player']['state']['flashed'])
-                    flash = changed_state['player']['state']['flashed']
-                    cmd = bytes(f'A2 {flash}\n','utf-8')
-                    arduino.write(cmd)
-        self.server.previous_payload = payload
-
-    def log_message(self, format, *args):
-        """
-        Prevents requests from logger.infoing into the console
-        """
-        return
+def flashbang(device, hold_time = 1, fade_duration = 1):
+    # Set the LEDs to full white
+    device.leds = [(255, 255, 255)] * device.led_count
+    
+    # Wait for the specified hold time
+    time.sleep(hold_time)
+    
+    # Fade the LEDs to black over the specified duration
+    for i in range(255):
+        device.leds = [(255 - i, 255 - i, 255 - i)] * device.led_count
+        time.sleep(fade_duration / 255)
 
 
-server = MyServer(('localhost', 3000), 'MYTOKENHERE', MyRequestHandler)
+def main():
+    config = get_config()
+    # print(config)
+    # device, device_type = load_device(config)
+    # print(f"Got device: {device} of type: {device_type}")
 
-logger.info('{} - CS:GO GSI Quick Start server starting'.format(time.asctime()))
+    mywled = WLEDDevice(config)
 
-try:
-    server.serve_forever()
-except (KeyboardInterrupt, SystemExit):
-    pass
+    t = threading.Thread(target=update_leds_thread, args=(mywled.render,30))
+    t.start()
 
-server.server_close()
-logger.info('{} - CS:GO GSI Quick Start server stopped'.format(time.asctime()))
+    while True:
+        flashbang(mywled, .5, 3)
+        time.sleep(5)
+    # server = MyServer(('localhost', 3000), 'MYTOKENHERE', MyRequestHandler)
+
+    # logger.info('{} - CS:GO GSI Quick Start server starting'.format(time.asctime()))
+
+    # try:
+    #     server.serve_forever()
+    # except (KeyboardInterrupt, SystemExit):
+    #     pass
+
+    # server.server_close()
+    # logger.info('{} - CS:GO GSI Quick Start server stopped'.format(time.asctime()))
+
+
+if __name__ == "__main__":
+    main()
