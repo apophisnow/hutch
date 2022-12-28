@@ -1,11 +1,12 @@
-import toml
-from wled_device import WLEDDevice
+from wled_device import WLEDNetworkDevice
 import logging
+from server import GSIServer
+import toml
 import time
-import threading
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+framerate = 30
 
 def get_config():
     config = None
@@ -21,53 +22,43 @@ def get_config():
             toml.dump(config, config_file)
     return config
 
-def update_leds_thread(ledupdate, framerate):
-    """
-    A thread function that sends Adalight packets to update the LED colors at a fixed framerate.
-    """
-    while True:
-        ledupdate()
-        time.sleep(1 / framerate)
 
-def flashbang(device, hold_time = 1, fade_duration = 1):
-    # Set the LEDs to full white
-    device.leds = [(255, 255, 255)] * device.led_count
+class Animation():
+    def __init__(self, device):
+        self.device = device
     
-    # Wait for the specified hold time
-    time.sleep(hold_time)
-    
-    # Fade the LEDs to black over the specified duration
-    for i in range(255):
-        device.leds = [(255 - i, 255 - i, 255 - i)] * device.led_count
-        time.sleep(fade_duration / 255)
+    def send(self, payload):
+        self.device.send_json(payload)
 
+    def idle(self):
+        a = {
+            "bri": 40,
+            "seg": [
+                {
+                    "fx": "0",
+                    "sx": "100",
+                    "col":[[0,200,200]]
+                }
+            ]
+        }
+        self.send(a)
+
+
+def handle_changes(changes, old_state, device):
+    a = Animation(device)
+    print(changes)
+    if changes.get('player',{}).get('state', {}).get('flashed', 0) > 0:
+        print("hmm")
+        if not old_state['player']['state']['flashed']:
+            a.flashbang(changes.get('player').get('state').get('flashed'))
+        a.flashbang(changes.get('player').get('state').get('flashed'))
 
 def main():
-    config = get_config()
-    # print(config)
-    # device, device_type = load_device(config)
-    # print(f"Got device: {device} of type: {device_type}")
-
-    mywled = WLEDDevice(config)
-
-    t = threading.Thread(target=update_leds_thread, args=(mywled.render,30))
-    t.start()
-
-    while True:
-        flashbang(mywled, .5, 3)
-        time.sleep(5)
-    # server = MyServer(('localhost', 3000), 'MYTOKENHERE', MyRequestHandler)
-
-    # logger.info('{} - CS:GO GSI Quick Start server starting'.format(time.asctime()))
-
-    # try:
-    #     server.serve_forever()
-    # except (KeyboardInterrupt, SystemExit):
-    #     pass
-
-    # server.server_close()
-    # logger.info('{} - CS:GO GSI Quick Start server stopped'.format(time.asctime()))
-
+    mywled = WLEDNetworkDevice(get_config())
+    server = GSIServer(("127.0.0.1", 3000), "MYTOKENHERE", mywled.handle_csgo_payload)
+    server.start_server()
+    while server.running:
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()
