@@ -9,6 +9,7 @@ import urllib.request
 import struct
 import toml
 from threading import Thread
+from util import effect, palette
 
 log = logging.getLogger(__name__)
 
@@ -23,12 +24,12 @@ class WLEDDevice():
         self._leds = [[0,0,255]]
         self._config = config
         self._previous_device = config.get('previous_device')
+        self._colors = {
+            "t": [],
+            "ct": [],
+            "bomb": [],
+        }
         
-        # print("Selected:")
-        # print(f"{self._wled.get('info').get('name')} @ {self.ip}")
-        # print(f"Mac address: {self.mac}")
-        # print(f"LEDs configured: {self.led_count}")
-
     @property
     def config(self):
         return self._config
@@ -63,6 +64,11 @@ class WLEDDevice():
     def uptime(self):
         self.refresh_info()
         return self._wled.get("info").get("uptime")
+
+    def update_config(self):
+        if self.previous_device:
+            self._config['previous_device'] = self.previous_device
+        self.save()
 
     def refresh_info(self):
         pass
@@ -196,19 +202,6 @@ class WLEDDevice():
             return False
 
 
-class WLEDListener(ServiceListener):
-
-    def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        print(f"Service {name} updated")
-
-    def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        print(f"Service {name} removed")
-
-    def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-        info = zc.get_service_info(type_, name)
-        print(f"Service {name} added, service info: {info}")
-
-
 class WLEDSerialDevice(WLEDDevice):
     def __init__(self, config):
         super().__init__(config)
@@ -235,20 +228,25 @@ class WLEDSerialDevice(WLEDDevice):
 class WLEDNetworkDevice(WLEDDevice):
     def __init__(self, config):
         super().__init__(config)
-        self._host = self.get_device()
+        self._host = None
+        self._wled = None
+        self.led_count = None
+        self.stop_flag = True
+
+        self.get_device()
         self._wled = json.loads(self.get_wled_info(self._host))
         self.led_count = self._wled.get("info").get("leds").get("count")
-        self.stop_flag = True
         self.a_blink(3,30,[0,50,0])
         self.initilize_wled()
+        self.a_idle()
 
     def get_device(self):
         if self.previous_device:
             if self.ping_device(self.previous_device):
                 log.info(f'Connected to previously used device: {self.previous_device}')
                 return self.previous_device
-            else:
-                self.get_wled_zeroconf_device()
+        else:
+            self.get_wled_zeroconf_device()
 
     def render(self):
         while not self.stop_flag:
@@ -284,15 +282,16 @@ class WLEDNetworkDevice(WLEDDevice):
                 log.info(f"Found: {device.server}")
 
         if len(devices) == 1:
-            return devices[0]
+            self.previous_device = devices[0].server
+            self._host = devices[0].server
         elif len(devices) > 1:
             print("Multiple WLED devices found:")
             for i, device in enumerate(devices):
                 wled = json.loads(self.get_wled_info(device.server))
                 print(f"{i+1}. {wled.get('info').get('name')} {device.server}")
             selection = input("Enter the number of the device you want to use: ")
-            self.previous_device = device.server
-            return devices[int(selection)-1].server
+            self.previous_device = devices[int(selection)-1].server
+            self._host = devices[int(selection)-1].server
         else:
             raise DeviceNotFound
 
@@ -330,16 +329,17 @@ class WLEDNetworkDevice(WLEDDevice):
     def initilize_wled(self):
         a = {
             "bri": 40,
-            "on": "true",
+            "on": True,
             #maybe transition 0? we'll see... Can also use tt instead for a single call.
             "transition": 7,
             "seg": [
                 {
                     "bri": 255,
-                    "fx": "0",
-                    "sx": "100",
-                    "on": "true",
-                    "col":[[0,0,0]]
+                    "fx": effect['Solid'],
+                    "sx": 100,
+                    "on": True,
+                    "col":[[0,0,0]],
+                    "tt": 0
                 }
             ]
         }
@@ -347,12 +347,11 @@ class WLEDNetworkDevice(WLEDDevice):
 
     def a_idle(self):
         a = {
-            "bri": 40,
             "seg": [
                 {
-                    "fx": "0",
-                    "sx": "100",
-                    "col":[[0,200,200]]
+                    "fx": effect['Colorloop'],
+                    "sx": 1,
+                    "pal": palette['Rainbow']
                 }
             ]
         }
@@ -374,7 +373,19 @@ class WLEDNetworkDevice(WLEDDevice):
         pass
 
     def a_fire(self):
-        pass
+        a = {
+            "seg": [
+                {
+                    "fx": effect['Fire 2012'],
+                    "sx": 60,
+                    "ix": 175,
+                    "pal": palette['Fire'],
+                    "mi": True,
+                    "tt": 0
+                }
+            ]
+        }
+        self.send_json(a)
 
     def a_kill(self):
         pass
@@ -405,6 +416,7 @@ class WLEDNetworkDevice(WLEDDevice):
             time.sleep(sleep_time)
         self.stop_flag = True
         thread.join()
+        self.send_json({"live": False})
     
     def a_flashbang(self, start_intensity, duration=.5):
         '''Start a simulated flashbang at the intensity given that lasts for duration.'''
@@ -422,3 +434,5 @@ class WLEDNetworkDevice(WLEDDevice):
             time.sleep(tick)
         self.stop_flag = True
         thread.join()
+        self.send_json({"live": False})
+        

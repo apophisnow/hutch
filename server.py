@@ -25,11 +25,12 @@ class GSIServer(HTTPServer):
         self.gamestate = None
         self.callback = callback
         self.running = False
+        self._thread = None
 
     def start_server(self):
         try:
-            thread = Thread(target=self.serve_forever)
-            thread.start()
+            self._thread = Thread(target=self.serve_forever)
+            self._thread.start()
             first_time = True
             while self.running == False:
                 if first_time == True:
