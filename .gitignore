@@ -3,3 +3,6 @@
 __pycache__
 csgo_config.toml
 .DS_Store
+dist
+build
+*.spec
