@@ -234,7 +234,8 @@ class WLEDNetworkDevice(WLEDDevice):
         self.stop_flag = True
 
         self.get_device()
-        self._wled = json.loads(self.get_wled_info(self._host))
+        print(f"Host: {self._host}")
+        self._wled = json.loads(self.get_wled_info())
         self.led_count = self._wled.get("info").get("leds").get("count")
         self.a_blink(3,30,[0,50,0])
         self.initilize_wled()
@@ -244,7 +245,7 @@ class WLEDNetworkDevice(WLEDDevice):
         if self.previous_device:
             if self.ping_device(self.previous_device):
                 log.info(f'Connected to previously used device: {self.previous_device}')
-                return self.previous_device
+                self._host = self.previous_device
         else:
             self.get_wled_zeroconf_device()
 
@@ -295,8 +296,8 @@ class WLEDNetworkDevice(WLEDDevice):
         else:
             raise DeviceNotFound
 
-    def get_wled_info(self, host):
-        with urllib.request.urlopen("http://{}/json".format(host)) as response:
+    def get_wled_info(self, host=None):
+        with urllib.request.urlopen("http://{}/json".format(host or self._host)) as response:
             # If the request is successful (status code 200), return True.
             if response.getcode() == 200:
                 data = response.read().decode()
