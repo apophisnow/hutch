@@ -39,7 +39,7 @@ class GSIServer(HTTPServer):
                 first_time = False
                 # Small sleep to reduce high cpu while waiting on first request to come through.
                 time.sleep(.1)
-        except Exception:
+        except: # want bare except here so it exits on keyboard interrupt
             log.exception("Could not start server.")
 
     # def compare_game_state(self, new_game_state):
