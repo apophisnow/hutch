@@ -6,6 +6,7 @@ import time
 
 log = logging.getLogger(__name__)
 
+
 def flatten_dict(d):
     result = {}
     for key, value in d.items():
@@ -32,39 +33,39 @@ class GSIServer(HTTPServer):
             self._thread = Thread(target=self.serve_forever)
             self._thread.start()
             first_time = True
-            while self.running == False:
-                if first_time == True:
+            while self.running is False:
+                if first_time is True:
                     log.info("CS:GO GSI Server starting..")
                 first_time = False
                 # Small sleep to reduce high cpu while waiting on first request to come through.
                 time.sleep(.1)
-        except:
+        except Exception:
             log.exception("Could not start server.")
 
-    def compare_game_state(self, new_game_state):
-        old_game_state = self.gamestate
-        self.gamestate = new_game_state
-        changes = []
-        # Define a helper function to compare the dictionaries at the specified keys
-        def compare_dicts(old_dict, new_dict, keys):
-            # Check for new attributes in the new dictionary
-            new_keys = set(new_dict.keys()) - set(keys)
-            for key in new_keys:
-                changes.append({key: new_dict[key]})
-            for key in keys:
-                # Check if the value at the key is a dictionary
-                if isinstance(old_dict.get(key), dict) and isinstance(new_dict.get(key), dict):
-                    # Recursively call the helper function to compare the nested dictionaries
-                    compare_dicts(old_dict[key], new_dict[key], old_dict[key].keys())
-                else:
-                    # Compare the values for the key
-                    old_value = old_dict.get(key, None)
-                    new_value = new_dict.get(key, None)
-                    if old_value != new_value and new_value is not None:
-                        changes.append({key: new_value})
-        compare_dicts(old_game_state, new_game_state, old_game_state.keys())
-        if changes:
-            return changes
+    # def compare_game_state(self, new_game_state):
+    #     old_game_state = self.gamestate
+    #     self.gamestate = new_game_state
+    #     changes = []
+    #     # Define a helper function to compare the dictionaries at the specified keys
+    #     def compare_dicts(old_dict, new_dict, keys):
+    #         # Check for new attributes in the new dictionary
+    #         new_keys = set(new_dict.keys()) - set(keys)
+    #         for key in new_keys:
+    #             changes.append({key: new_dict[key]})
+    #         for key in keys:
+    #             # Check if the value at the key is a dictionary
+    #             if isinstance(old_dict.get(key), dict) and isinstance(new_dict.get(key), dict):
+    #                 # Recursively call the helper function to compare the nested dictionaries
+    #                 compare_dicts(old_dict[key], new_dict[key], old_dict[key].keys())
+    #             else:
+    #                 # Compare the values for the key
+    #                 old_value = old_dict.get(key, None)
+    #                 new_value = new_dict.get(key, None)
+    #                 if old_value != new_value and new_value is not None:
+    #                     changes.append({key: new_value})
+    #     compare_dicts(old_game_state, new_game_state, old_game_state.keys())
+    #     if changes:
+    #         return changes
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -88,7 +89,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.server.callback(new=flatten_dict(payload))
         self.server.gamestate = (flatten_dict(payload))
-        
+
     def authenticate_payload(self, payload):
         if "auth" in payload and "token" in payload["auth"]:
             return payload["auth"]["token"] == self.server.auth_token
