@@ -42,31 +42,6 @@ class GSIServer(HTTPServer):
         except: # want bare except here so it exits on keyboard interrupt
             log.exception("Could not start server.")
 
-    # def compare_game_state(self, new_game_state):
-    #     old_game_state = self.gamestate
-    #     self.gamestate = new_game_state
-    #     changes = []
-    #     # Define a helper function to compare the dictionaries at the specified keys
-    #     def compare_dicts(old_dict, new_dict, keys):
-    #         # Check for new attributes in the new dictionary
-    #         new_keys = set(new_dict.keys()) - set(keys)
-    #         for key in new_keys:
-    #             changes.append({key: new_dict[key]})
-    #         for key in keys:
-    #             # Check if the value at the key is a dictionary
-    #             if isinstance(old_dict.get(key), dict) and isinstance(new_dict.get(key), dict):
-    #                 # Recursively call the helper function to compare the nested dictionaries
-    #                 compare_dicts(old_dict[key], new_dict[key], old_dict[key].keys())
-    #             else:
-    #                 # Compare the values for the key
-    #                 old_value = old_dict.get(key, None)
-    #                 new_value = new_dict.get(key, None)
-    #                 if old_value != new_value and new_value is not None:
-    #                     changes.append({key: new_value})
-    #     compare_dicts(old_game_state, new_game_state, old_game_state.keys())
-    #     if changes:
-    #         return changes
-
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
