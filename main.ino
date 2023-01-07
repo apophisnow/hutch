@@ -1,6 +1,6 @@
 #include <FastLED.h>
-    #define NUM_LEDS 24
-    #define DATA_PIN 6
+    #define NUM_LEDS 8
+    #define DATA_PIN D6
     #define FRAMES_PER_SECOND 60
     #define BRIGHTNESS_PERCENT 50
 CRGB leds[NUM_LEDS];
@@ -23,9 +23,7 @@ void setup() {
     Serial.println("Starting up...");
     
     // Make sure all LEDs are off.
-    for (int i = 0; i < NUM_LEDS; i++){
-        leds[i] = CRGB::Black;
-    }
+    c_Black();
     FastLED.show();
 }
 
@@ -44,7 +42,7 @@ void loop() {
     switch (cmd[0]) {
         // Animations: A
         case 'A':
-            switch (cmd[1]){
+            switch (cmd[1]) {
                 case '1':
                     if (cmdStart){
                         a_Flashbang(milliseconds, 255);
@@ -53,24 +51,29 @@ void loop() {
                     else{
                         a_Flashbang(milliseconds, 0);
                     }
-                    break;
+                break;
                 case '2':
                     byte intensity = getMagnitude(cmd);
                     a_Flashbang_live(intensity);
-                    break;     
+                break;     
             }
+        break;
         // Colors: C
         case 'C':
-            switch (cmd[1])
+            switch (cmd[1]) {
                 case '1':
-                        c_Red();
-                        break;
-                    case '2':
-                        c_Blue();
-                        break;
-                    case '3':
-                        c_Pink();
-                        break;
+                    c_Red();
+                break;
+                case '2':
+                    c_Blue();
+                break;
+                case '3':
+                    c_Pink();
+                break;
+                case '4':
+                    c_Black();
+                break;
+            }
         break;
     }
 
@@ -128,6 +131,12 @@ void c_Pink() {
             CRGB pink = CHSV( HUE_PINK, 255, 255);
             leds[i] = pink;
         }
+}
+
+void c_Black() {
+    for (int i = 0; i < NUM_LEDS; i++){
+          leds[i] = CRGB::Black;
+      }
 }
 
 //animations
