@@ -430,6 +430,8 @@ class WLEDNetworkDevice(WLEDDevice):
         '''Start a simulated flashbang at the intensity given that lasts for duration.'''
         # Could not find a good way to do flashbang with built-in WLED animations
         # so this drives the leds manually.
+        if start_intensity < 1:
+            start_intensity = 1
         value = start_intensity
         tick = duration / value
         self._leds = [[value, value, value]] * self.led_count
