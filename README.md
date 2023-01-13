@@ -3,7 +3,7 @@ The coolest LAN Hutch you can make
 
 # Getting started
 
-1. Move the hutch_gamestate_integration.cfg to your csgo cfg directory. Probably something like "C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive\csgo\cfg"
+1. Move the gamestate_integration_hutch.cfg to your csgo cfg directory. Probably something like "C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive\csgo\cfg"
 
 2. Run hutchserver.py: 'python hutchserver.py'
 

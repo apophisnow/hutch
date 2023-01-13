@@ -275,7 +275,6 @@ class WLEDNetworkDevice(WLEDDevice):
                 log.info(f"Found: {device.server}")
 
         if len(devices) == 1:
-            self.previous_device = devices[0].server
             self._host = devices[0].server
         elif len(devices) > 1:
             print("Multiple WLED devices found:")
@@ -283,16 +282,22 @@ class WLEDNetworkDevice(WLEDDevice):
                 wled = json.loads(self.get_wled_info(device.server))
                 print(f"{i+1}. {wled.get('info').get('name')} {device.server}")
             selection = input("Enter the number of the device you want to use: ")
-            self.previous_device = devices[int(selection)-1].server
             self._host = devices[int(selection)-1].server
         else:
             raise DeviceNotFound
+        if self._host.endswith('.'):
+            self._host = self._host[:-1]
+        self.previous_device = self._host
 
     def get_wled_info(self, host=None):
-        with urllib.request.urlopen("http://{}/json".format(host or self._host)) as response:
-            # If the request is successful (status code 200), return True.
-            if response.getcode() == 200:
-                data = response.read().decode()
+        try:
+            _url = "http://{}/json".format(host or self._host)
+            with urllib.request.urlopen(_url) as response:
+                # If the request is successful (status code 200), return True.
+                if response.getcode() == 200:
+                    data = response.read().decode()
+        except Exception:
+            print("Couldn't get wled info from {}".format(_url))
         return data
 
     def send_json(self, data):
@@ -425,6 +430,8 @@ class WLEDNetworkDevice(WLEDDevice):
         '''Start a simulated flashbang at the intensity given that lasts for duration.'''
         # Could not find a good way to do flashbang with built-in WLED animations
         # so this drives the leds manually.
+        if start_intensity < 1:
+            return
         value = start_intensity
         tick = duration / value
         self._leds = [[value, value, value]] * self.led_count
