@@ -42,7 +42,10 @@ class WLEDDevice():
 
     @property
     def ip(self):
-        return self._wled.get("info").get("ip")
+        if self._wled:
+            return self._wled.get("info").get("ip")
+        else:
+            return None
 
     @property
     def leds(self):
@@ -221,12 +224,17 @@ class WLEDNetworkDevice(WLEDDevice):
         self._wled = None
         self._framerate = 1/30
         self.led_count = None
+
         self.stop_flag = True
 
         self.get_device()
         print(f"Host: {self._host}")
-        self._wled = json.loads(self.get_wled_info())
-        self.led_count = self._wled.get("info").get("leds").get("count")
+        self._wled = None
+        if self._host is not None:
+            self._wled = json.loads(self.get_wled_info())
+        self._led = None
+        if self._wled:
+            self.led_count = self._wled.get("info").get("leds").get("count")
         self.a_blink(3, 30, [0, 50, 0])
         self.initilize_wled()
         self.a_idle()
@@ -279,7 +287,10 @@ class WLEDNetworkDevice(WLEDDevice):
         elif len(devices) > 1:
             print("Multiple WLED devices found:")
             for i, device in enumerate(devices):
-                wled = json.loads(self.get_wled_info(device.server))
+                stripped_host = None
+                if device.server.endswith('.'):
+                    stripped_host = device.server[:-1]
+                wled = json.loads(self.get_wled_info(stripped_host or device.server))
                 print(f"{i+1}. {wled.get('info').get('name')} {device.server}")
             selection = input("Enter the number of the device you want to use: ")
             self._host = devices[int(selection)-1].server
@@ -326,20 +337,29 @@ class WLEDNetworkDevice(WLEDDevice):
             return True
         return False
 
-    def handle_csgo_payload(self, old={}, new=None):
-        for i in new:
+    def handle_csgo_payload(self, payload):
+        print(payload)
+        for i in payload:
+            previous = f"previously.{i}"
             if i == "player.state.flashed":
-                if old.get(i) == 0 or old.get(i) is None and new.get(i) > 0:
-                    self.a_flashbang(new.get(i))
-                elif old.get(i) is not None and new.get(i) > old.get(i):
-                    self.a_flashbang(new.get(i))
+                if payload.get(previous) == 0 and payload.get(i) > 0 or payload.get(previous) is None and payload.get(i) > 0:
+                    self.a_flashbang(payload.get(i), duration=2)
+                elif payload.get(previous) is not None and payload.get(i) > payload.get(previous):
+                    self.a_flashbang(payload.get(i), duration=2)
+            if i == "player.state.burning":
+                if payload.get(previous) == 0 and payload.get(i) > 0 or payload.get(previous) is None and payload.get(i) > 0:
+                    self.a_fire()
+                if payload.get(i) < 10:
+                    self.a_idle()
+            if got_hs(payload):
+                self.a_blink(1, 1, [255, 153, 0])
 
     def initilize_wled(self):
         a = {
             "bri": 40,
             "on": True,
             # maybe transition 0? we'll see... Can also use tt instead for a single call.
-            "transition": 7,
+            "transition": 0,
             "seg": [
                 {
                     "bri": 255,
@@ -430,7 +450,7 @@ class WLEDNetworkDevice(WLEDDevice):
         '''Start a simulated flashbang at the intensity given that lasts for duration.'''
         # Could not find a good way to do flashbang with built-in WLED animations
         # so this drives the leds manually.
-        if start_intensity < 1:
+        if start_intensity <= 1:
             return
         value = start_intensity
         tick = duration / value
@@ -438,6 +458,7 @@ class WLEDNetworkDevice(WLEDDevice):
         self.stop_flag = False
         thread = Thread(target=self.render)
         thread.start()
+
         while value > 0:
             value -= 1
             self._leds = [[value, value, value]] * self.led_count
@@ -445,3 +466,9 @@ class WLEDNetworkDevice(WLEDDevice):
         self.stop_flag = True
         thread.join()
         self.send_json({"live": False})
+
+def got_hs(payload):
+    if payload.get("previously.player.state.round_killhs") is not None and payload.get("player.state.round_killhs") is not None:
+        if payload.get("previously.player.state.round_killhs") < payload.get("player.state.round_killhs"):
+            return True
+    return False

@@ -59,11 +59,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             self.server.running = True
         del payload["auth"]
-        if self.server.gamestate:
-            self.server.callback(old=flatten_dict(self.server.gamestate), new=flatten_dict(payload))
-        else:
-            self.server.callback(new=flatten_dict(payload))
-        self.server.gamestate = (flatten_dict(payload))
+        # if self.server.gamestate:
+            # self.server.callback(old=flatten_dict(self.server.gamestate), new=flatten_dict(payload))
+        # else:
+        self.server.callback(flatten_dict(payload))
+        # self.server.gamestate = (flatten_dict(payload))
 
     def authenticate_payload(self, payload):
         if "auth" in payload and "token" in payload["auth"]:
